@@ -37,7 +37,27 @@ After building, you can run the application:
 ```
 
 ## Usage
-[Detailed usage instructions will go here. For now, you can explore the commands and features by running the application.]
+After running the application, you will be prompted to enter a master password to log in.
+
+Once logged in, you can use the following built-in commands:
+
+- `help`: Lists all registered commands.
+- `reg <name> <command_string> [mode]`: Registers a new command. 
+    - `mode` can be `fg` for interactive (foreground) or `bg` for captured (background). Defaults to `bg`.
+    - Example: `reg list ls -la bg`
+- `del <name>`: Deletes a registered command.
+- `clear`: Clears the command history from the view.
+
+### Executing Commands
+- To run a registered command, simply type its name and press Enter.
+- To run any system command with root privileges, prefix it with `!` for captured output or `!!` for interactive execution.
+    - Example (captured): `!apt update`
+    - Example (interactive): `!!vim /etc/hosts`
+
+### Navigation
+- Use the **Up** and **Down** arrow keys to navigate your command history.
+- Use **Page Up** and **Page Down** to scroll through the output history.
+- Use **Tab** for command auto-completion.
 
 ## Contributing
 Contributions are welcome! Please feel free to open an issue or submit a pull request.
