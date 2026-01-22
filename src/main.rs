@@ -84,8 +84,21 @@ fn handle_shell_input(app: &mut AppState, key: KeyEvent, terminal: &mut Terminal
             }
         }
         KeyCode::Tab => {
-            if let Some(pred) = app.command_registry.find_prediction(&app.input_text) {
-                app.input_text = pred;
+            let prediction = if app.input_text.starts_with("!!") {
+                app.command_registry.find_prediction(&app.input_text[2..])
+            } else if app.input_text.starts_with("!") {
+                app.command_registry.find_prediction(&app.input_text[1..])
+            } else {
+                app.command_registry.find_prediction(&app.input_text)
+            };
+            if let Some(pred) = prediction {
+                if app.input_text.starts_with("!!") {
+                    app.input_text = format!("!!{}", pred);
+                } else if app.input_text.starts_with("!") {
+                    app.input_text = format!("!{}", pred);
+                } else {
+                    app.input_text = pred;
+                };
             }
         }
         KeyCode::Char(c) => app.input_text.push(c),

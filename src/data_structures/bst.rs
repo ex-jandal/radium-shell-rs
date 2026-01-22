@@ -74,6 +74,20 @@ impl CommandTree {
         }
     }
 
+    pub fn get_all_names(&self) -> Vec<String> {
+        let mut names = Vec::new();
+        Self::traverse(&self.root, &mut names);
+        names
+    }
+
+    fn traverse(node: &Option<Box<TreeNode>>, names: &mut Vec<String>) {
+        if let Some(n) = node {
+            Self::traverse(&n.left, names);
+            names.push(n.command.name.clone());
+            Self::traverse(&n.right, names);
+        }
+    }
+
     pub fn search(&self, name: String) -> Option<&Command> {
         let mut current = &self.root;
         let mut name = name;
@@ -90,35 +104,6 @@ impl CommandTree {
             }
         }
         None
-    }
-
-    pub fn get_all_names(&self) -> Vec<String> {
-        let mut names = Vec::new();
-        Self::traverse(&self.root, &mut names);
-        names
-    }
-
-    fn traverse(node: &Option<Box<TreeNode>>, names: &mut Vec<String>) {
-        if let Some(n) = node {
-            Self::traverse(&n.left, names);
-            names.push(n.command.name.clone());
-            Self::traverse(&n.right, names);
-        }
-    }
-
-    pub fn update_description(&mut self, name: &str, new_desc: &str) -> bool {
-        let mut current = &mut self.root;
-        while let Some(node) = current {
-            if name == node.command.name {
-                node.command.description = new_desc.to_string();
-                return true;
-            } else if name < node.command.name.as_str() {
-                current = &mut node.left;
-            } else {
-                current = &mut node.right;
-            }
-        }
-        false
     }
 
     pub fn find_prediction(&self, prefix: &str) -> Option<String> {

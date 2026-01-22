@@ -2,7 +2,7 @@ use ratatui::{
     Frame, layout::{Constraint, Direction, HorizontalAlignment, Layout, Rect}, style::{Color, Modifier, Style}, text::{Line, Span}, widgets::{Block, BorderType, Borders, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState}
 };
 
-use crate::stats::AppState;
+use crate::{data_structures::bst::is_protected, stats::AppState};
 
 pub fn draw_ui(f: &mut Frame, app_state: &AppState) {
     let chunks = Layout::default()
@@ -56,11 +56,11 @@ pub fn draw_ui(f: &mut Frame, app_state: &AppState) {
         &mut scrollbar_state,
     );
 
-    let commands_in_bst: Vec<ListItem> = app_state.command_registry
+    let mut commands_in_bst: Vec<ListItem> = app_state.command_registry
         .get_all_names()
         .into_iter()
         .map(|name| {
-            if crate::data_structures::bst::is_protected(&name) {
+            if is_protected(&name) {
                 ListItem::new(format!("  {} [SYS]", name))
                     .style(Style::default().fg(Color::DarkGray)) 
             } else {
@@ -69,6 +69,14 @@ pub fn draw_ui(f: &mut Frame, app_state: &AppState) {
             }
         })
         .collect();
+
+    if app_state.input_text.starts_with('!') {
+        let ghost_cmd = app_state.input_text.trim();
+        commands_in_bst.insert(0, 
+            ListItem::new(format!(" 󱐋 {} (ROOT)", ghost_cmd))
+                .style(Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))
+        );
+    }
 
     let sidebar = List::new(commands_in_bst)
         .block(Block::default()
@@ -82,12 +90,27 @@ pub fn draw_ui(f: &mut Frame, app_state: &AppState) {
 
     let input_area = chunks[2];
 
-    let prediction = app_state.command_registry.find_prediction(&app_state.input_text);
+
+    let prediction = if app_state.input_text.starts_with("!!") {
+        app_state.command_registry.find_prediction(&app_state.input_text[2..])
+    } else if app_state.input_text.starts_with("!") {
+        app_state.command_registry.find_prediction(&app_state.input_text[1..])
+    } else {
+        app_state.command_registry.find_prediction(&app_state.input_text)
+    };
 
     let display_text = if let Some(ref pred) = prediction {
+        let pred_len = if app_state.input_text.starts_with("!!") {
+            app_state.input_text.len() - 2
+        } else if app_state.input_text.starts_with("!") {
+            app_state.input_text.len() - 1
+        } else {
+            app_state.input_text.len()
+        };
+
         Line::from(vec![
             Span::styled(&app_state.input_text, Style::default().fg(Color::Yellow)),
-            Span::styled(&pred[app_state.input_text.len()..], Style::default().fg(Color::DarkGray)),
+            Span::styled(&pred[pred_len..], Style::default().fg(Color::DarkGray)),
         ])
     } else {
         Line::from(Span::raw(&app_state.input_text))
