@@ -31,13 +31,13 @@ pub fn draw_ui(f: &mut Frame, app_state: &AppState) {
     let messages: Vec<ListItem> = app_state.history_list
         .to_vec()
         .into_iter()
-        .map(|m| ListItem::new(m))
+        .map(ListItem::new)
         .collect();
 
     let output_list = List::new(messages)
         .block(Block::default().title(" Output ").borders(Borders::ALL).border_type(BorderType::Rounded))
         .highlight_style(Style::default().add_modifier(Modifier::BOLD)) 
-        .highlight_symbol("->> ");
+        .highlight_symbol(" ->");
 
     f.render_stateful_widget(
         output_list, 
@@ -93,14 +93,27 @@ pub fn draw_ui(f: &mut Frame, app_state: &AppState) {
         Line::from(Span::raw(&app_state.input_text))
     };
 
+    let input_color = if app_state.input_text.starts_with('!') {
+        Color::Red
+    } else {
+        Color::Cyan
+    };
+
     let input_widget = Paragraph::new(display_text)
-        .block(Block::default().borders(Borders::ALL).border_type(BorderType::Rounded).padding(Padding::left(2)).title(" Input (Tab to complete) "));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(input_color))
+                .padding(Padding::left(2))
+                .title(if app_state.input_text.starts_with('!') { " [ ROOT EXECUTION ] " } else { " [ Input (Use ! for Root, !! Interactive Root) ] " })
+        );
 
     f.render_widget(input_widget, input_area);
-    f.set_cursor(
+    f.set_cursor_position((
         chunks[2].x + app_state.input_text.len() as u16 + 3,
         chunks[2].y + 1,
-    );
+    ));
 
     let last_chunks = Layout::default()
         .direction(Direction::Horizontal)

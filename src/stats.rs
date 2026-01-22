@@ -34,44 +34,14 @@ impl AppState {
             tree.insert(Command::new("start", "Initialize core systems", CommandAction::DataDisplay));
             tree.insert(Command::new("status", "Check system health", CommandAction::DataDisplay));
             tree.insert(Command::new("clear", "Clear command history", CommandAction::SystemClear));
-            tree.insert(Command { 
-                name: "ls".into(),
-                description: "List files in current directory".into(),
-                action: CommandAction::ExecuteOS 
-            });
-            tree.insert(Command { 
-                name: "cd".into(),
-                description: "change the current directory".into(),
-                action: CommandAction::SystemCd 
-            });
-            tree.insert(Command { 
-                name: "cat".into(),
-                description: "print file contect".into(),
-                action: CommandAction::ExecuteOS 
-            });
-            tree.insert(Command { 
-                name: "fastfetch".into(),
-                description: "fetch system info".into(),
-                action: CommandAction::ExecuteOS 
-            });
+            tree.insert(Command::new("ls", "List files in current directory", CommandAction::ExecuteCaptured));
 
-            tree.insert(Command { 
-                name: "pwd".into(),
-                description: "print current working directory".into(),
-                action: CommandAction::ExecuteOS 
-            });
-
-            tree.insert(Command { 
-                name: "reg".into(),
-                description: "Register a command".into(),
-                action: CommandAction::DataDisplay 
-            });
-
-            tree.insert(Command { 
-                name: "del".into(),
-                description: "Delete a Registered command".into(),
-                action: CommandAction::DataDisplay 
-            });
+            tree.insert(Command::new("cd", "change the current directory", CommandAction::SystemCd));
+            tree.insert(Command::new("cat", "print file contect", CommandAction::ExecuteCaptured));
+            tree.insert(Command::new("man", "manual page for help", CommandAction::ExecuteInteractive));
+            tree.insert(Command::new("pwd", "print current working directory", CommandAction::ExecuteCaptured));
+            tree.insert(Command::new("reg", "Register a command", CommandAction::DataDisplay));
+            tree.insert(Command::new("del","Delete a Registered command", CommandAction::DataDisplay));
 
             let _ = tree.save_to_file("registry.json");
         }

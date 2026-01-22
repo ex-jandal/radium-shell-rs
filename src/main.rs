@@ -36,7 +36,7 @@ fn main() -> io::Result<()> {
             if key.kind == event::KeyEventKind::Press {
                 match app_state.mode {
                     AppMode::Login => handle_login_input(&mut app_state, key),
-                    AppMode::Shell => handle_shell_input(&mut app_state, key),
+                    AppMode::Shell => handle_shell_input(&mut app_state, key, &mut terminal),
                 }
             }
         }
@@ -61,7 +61,7 @@ fn restore_terminal(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> io::Res
     Ok(())
 }
 
-fn handle_shell_input(app: &mut AppState, key: KeyEvent) {
+fn handle_shell_input(app: &mut AppState, key: KeyEvent, terminal: &mut Terminal<CrosstermBackend<Stdout>>) {
     if key.kind != KeyEventKind::Press {
         return;
     }
@@ -92,7 +92,7 @@ fn handle_shell_input(app: &mut AppState, key: KeyEvent) {
         KeyCode::Backspace => {
             app.input_text.pop();
         }
-        KeyCode::Enter => execute_command(app),
+        KeyCode::Enter => execute_command(app, terminal),
         KeyCode::PageUp => {
             let current_idx = app.scroll_state.selected().unwrap_or(0);
             let new_idx = current_idx.saturating_sub(1);
@@ -131,35 +131,79 @@ fn handle_login_input(app: &mut AppState, key: KeyEvent) {
     }
 }
 
-pub fn execute_command(app: &mut AppState) {
-    if app.input_text.trim().is_empty() {
+pub fn execute_command(app: &mut AppState, terminal: &mut Terminal<CrosstermBackend<Stdout>>) {
+    let trimmed_input = app.input_text.trim();
+    if trimmed_input.is_empty() {
         return;
     }
 
     app.command_history.push(app.input_text.clone());
     app.history_index = app.command_history.len();
 
+    if trimmed_input.starts_with("!!") {
+        let actual_cmd = &trimmed_input[2..trimmed_input.len()];
+        let full_sudo_cmd = format!("sudo {}", actual_cmd);
+        
+        app.history_list.append(format!("[󱐋] Root Exec: {}", actual_cmd));
+        
+        let _ = run_interactive_process(terminal, &full_sudo_cmd);
+        
+        app.input_text.clear();
+        return;
+
+    } else if trimmed_input.starts_with("!") {
+        let actual_cmd = &trimmed_input[1..trimmed_input.len()];
+        let full_sudo_cmd = format!("sudo {}", actual_cmd);
+        
+        app.history_list.append(format!("[󱐋] Root Exec: {}", actual_cmd));
+        
+        let result = run_os_command(&full_sudo_cmd);
+        for line in result.lines() {
+            app.history_list.append(format!("  {}", line));
+        }
+
+        finalize_scroll(app);
+        app.input_text.clear();
+        return;
+    }
+
+
     let parts: Vec<&str> = app.input_text.split_whitespace().collect();
 
     let cmd_name = parts[0].to_lowercase();
     let args = &parts[1..];
+    let full_cmd = format!("{} {}", cmd_name, args.join(" "));
 
     if cmd_name == "reg" && args.len() >= 2 {
         let name = args[0].to_string();
-        let desc = args[1..].join(" ");
-        let new_cmd = Command::new(&name, &desc, CommandAction::ExecuteOS);
+        
+        let (desc, action) = match args.last() {
+            Some(&"fg") => {
+                let d = args[1..args.len()-1].join(" ");
+                (d, CommandAction::ExecuteInteractive)
+            }
+            Some(&"bg") => {
+                let d = args[1..args.len()-1].join(" ");
+                (d, CommandAction::ExecuteCaptured)
+            }
+            _ => {
+                let d = args[1..].join(" ");
+                (d, CommandAction::ExecuteCaptured)
+            }
+        };
+
+        let new_cmd = Command::new(&name, &desc, action);
 
         app.command_registry.insert(new_cmd);
-        app.history_list.append(format!("[+] Registered: {}", name));
+        
+        let mode_str = if matches!(action, CommandAction::ExecuteInteractive) { "Interactive" } else { "Captured" };
+        app.history_list.append(format!("[+] Registered: {} [{}]", name, mode_str));
         app.history_list.append("\n".to_string());
-        app.input_text.clear();
 
-        let total_items = app.history_list.size;
-        if total_items > 0 {
-            app.scroll_state.select(Some(total_items - 1));
-        }
+        finalize_scroll(app);
 
         let _ = app.command_registry.save_to_file("registry.json");
+        app.input_text.clear();
         return;
     }
 
@@ -178,10 +222,7 @@ pub fn execute_command(app: &mut AppState) {
 
         app.history_list.append("\n".to_string());
 
-        let total_items = app.history_list.size;
-        if total_items > 0 {
-            app.scroll_state.select(Some(total_items - 1));
-        }
+        finalize_scroll(app);
 
         app.input_text.clear();
         return;
@@ -200,9 +241,12 @@ pub fn execute_command(app: &mut AppState) {
             }
         }
         app.history_list.append("─".repeat(45));
+
+        finalize_scroll(app);
         app.input_text.clear();
         return;
     }
+
 
     if let Some(cmd) = app.command_registry.search(cmd_name.to_string()) {
         match cmd.action {
@@ -220,17 +264,19 @@ pub fn execute_command(app: &mut AppState) {
                     app.message_color = Color::Green;
                     app.history_list.append("\n".to_string());
                 }
-            }
-            CommandAction::ExecuteOS => {
+            },
+            CommandAction::ExecuteInteractive => {
                 let full_cmd = format!("{} {}", cmd_name, args.join(" "));
+                let _ = run_interactive_process(terminal, &full_cmd);
+            },
+            CommandAction::ExecuteCaptured => {
                 let result = run_os_command(&full_cmd);
-                app.history_list
-                    .append(format!("[Command]: '{}'", full_cmd.trim()));
+                app.history_list.append(format!("[O] : '{}'", full_cmd.trim()));
                 for line in result.lines() {
                     app.history_list.append(format!("  {}", line));
                 }
                 app.history_list.append("\n".to_string());
-            }
+            },
             CommandAction::SystemClear => {
                 app.history_list.purge();
                 app.message_color = Color::Green;
@@ -250,12 +296,15 @@ pub fn execute_command(app: &mut AppState) {
         app.history_list.append("\n".to_string());
     }
 
+    finalize_scroll(app);
+    app.input_text.clear();
+}
+
+fn finalize_scroll(app: &mut AppState) {
     let total_items = app.history_list.size;
     if total_items > 0 {
-        app.scroll_state.select(Some(total_items - 1));
+        app.scroll_state.select(Some(total_items.saturating_sub(2)));
     }
-
-    app.input_text.clear();
 }
 
 fn run_os_command(cmd_name: &str) -> String {
@@ -263,9 +312,33 @@ fn run_os_command(cmd_name: &str) -> String {
 
     match output {
         Ok(out) => {
-            String::from_utf8_lossy(&out.stdout).to_string()
+            if out.status.success() {
+                String::from_utf8_lossy(&out.stdout).to_string()
+            } else {
+                String::from_utf8_lossy(&out.stderr).to_string()
+            }
         }
         Err(e) => format!("Failed to execute: {}", e),
     }
 
+}
+pub fn run_interactive_process(terminal: &mut Terminal<CrosstermBackend<Stdout>>, cmd_string: &str) -> io::Result<()> {
+    disable_raw_mode()?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    
+    let mut child = OsCommand::new("sh")
+        .arg("-c")
+        .arg(cmd_string)
+        .stdin(std::process::Stdio::inherit())
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .spawn()?;
+
+    let _ = child.wait()?;
+
+    enable_raw_mode()?;
+    execute!(terminal.backend_mut(), EnterAlternateScreen)?;
+    terminal.clear()?;
+
+    Ok(())
 }

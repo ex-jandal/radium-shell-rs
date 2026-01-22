@@ -1,12 +1,13 @@
 use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
 pub enum CommandAction {
     SystemClear,
     SystemExit,
     DataDisplay,
     SystemCd,
-    ExecuteOS
+    ExecuteCaptured,
+    ExecuteInteractive
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,6 +15,7 @@ pub struct Command {
     pub name: String,
     pub description: String,
     pub action: CommandAction,
+    pub is_interactive: bool,
 }
 
 pub fn is_protected(name: &str) -> bool {
@@ -29,7 +31,8 @@ impl Command {
         Self { 
             name, 
             description,
-            action
+            action,
+            is_interactive: false
         }
     }
 }
@@ -73,6 +76,10 @@ impl CommandTree {
 
     pub fn search(&self, name: String) -> Option<&Command> {
         let mut current = &self.root;
+        let mut name = name;
+        if name.starts_with('!') {
+            name.pop();
+        }
         while let Some(node) = current {
             if name == node.command.name {
                 return Some(&node.command);
@@ -138,10 +145,7 @@ impl CommandTree {
     }
 
     fn delete_recursive(node: Option<Box<TreeNode>>, name: &str) -> Option<Box<TreeNode>> {
-        let mut n = match node {
-            None => return None,
-            Some(node) => node,
-        };
+        let mut n = node?;
 
         if name < n.command.name.as_str() {
             n.left = Self::delete_recursive(n.left.take(), name);
