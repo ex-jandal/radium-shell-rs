@@ -91,6 +91,7 @@ fn handle_shell_input(app: &mut AppState, key: KeyEvent, terminal: &mut Terminal
             } else {
                 app.command_registry.find_prediction(&app.input_text)
             };
+
             if let Some(pred) = prediction {
                 if app.input_text.starts_with("!!") {
                     app.input_text = format!("!!{}", pred);
@@ -160,6 +161,9 @@ pub fn execute_command(app: &mut AppState, terminal: &mut Terminal<CrosstermBack
         app.history_list.append(format!("[󱐋] Root Exec: {}", actual_cmd));
         
         let _ = run_interactive_process(terminal, &full_sudo_cmd);
+
+        app.history_list.append("\n".to_string());
+        finalize_scroll(app);
         
         app.input_text.clear();
         return;
@@ -175,7 +179,9 @@ pub fn execute_command(app: &mut AppState, terminal: &mut Terminal<CrosstermBack
             app.history_list.append(format!("  {}", line));
         }
 
+        app.history_list.append("\n".to_string());
         finalize_scroll(app);
+
         app.input_text.clear();
         return;
     }
@@ -211,8 +217,8 @@ pub fn execute_command(app: &mut AppState, terminal: &mut Terminal<CrosstermBack
         
         let mode_str = if matches!(action, CommandAction::ExecuteInteractive) { "Interactive" } else { "Captured" };
         app.history_list.append(format!("[+] Registered: {} [{}]", name, mode_str));
-        app.history_list.append("\n".to_string());
 
+        app.history_list.append("\n".to_string());
         finalize_scroll(app);
 
         let _ = app.command_registry.save_to_file("registry.json");
@@ -284,7 +290,7 @@ pub fn execute_command(app: &mut AppState, terminal: &mut Terminal<CrosstermBack
             },
             CommandAction::ExecuteCaptured => {
                 let result = run_os_command(&full_cmd);
-                app.history_list.append(format!("[O] : '{}'", full_cmd.trim()));
+                app.history_list.append(format!("[󱆃] : '{}'", full_cmd.trim()));
                 for line in result.lines() {
                     app.history_list.append(format!("  {}", line));
                 }
