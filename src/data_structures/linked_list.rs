@@ -1,9 +1,9 @@
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 type Link<T> = Option<Rc<RefCell<Node<T>>>>;
 
-pub struct Node<T> {
+struct Node<T> {
     data: T,
     next: Link<T>,
     prev: Link<T>,
@@ -86,6 +86,7 @@ impl<T: std::clone::Clone + std::fmt::Display> LinkedList<T> {
 
         result
     }
+
     pub fn purge(&mut self) {
         while self.head.is_some() {
             self.pop_front();

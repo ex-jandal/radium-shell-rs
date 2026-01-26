@@ -61,7 +61,11 @@ fn restore_terminal(mut terminal: Terminal<CrosstermBackend<Stdout>>) -> io::Res
     Ok(())
 }
 
-fn handle_shell_input(app: &mut AppState, key: KeyEvent, terminal: &mut Terminal<CrosstermBackend<Stdout>>) {
+fn handle_shell_input(
+    app: &mut AppState,
+    key: KeyEvent,
+    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+) {
     if key.kind != KeyEventKind::Press {
         return;
     }
@@ -136,7 +140,7 @@ fn handle_login_input(app: &mut AppState, key: KeyEvent) {
                 app.status_message = "Type 'help' to start.".to_string();
                 app.message_color = Color::Green;
             } else {
-                app.status_message = "INVALID KEY".to_string();
+                app.status_message = "INVALID KEY...".to_string();
                 app.message_color = Color::Red;
             }
             app.input_text.clear();
@@ -157,23 +161,24 @@ pub fn execute_command(app: &mut AppState, terminal: &mut Terminal<CrosstermBack
     if trimmed_input.starts_with("!!") {
         let actual_cmd = &trimmed_input[2..trimmed_input.len()];
         let full_sudo_cmd = format!("sudo {}", actual_cmd);
-        
-        app.history_list.append(format!("[󱐋] Root Exec: {}", actual_cmd));
-        
+
+        app.history_list
+            .append(format!("[󱐋] Root Exec: {}", actual_cmd));
+
         let _ = run_interactive_process(terminal, &full_sudo_cmd);
 
         app.history_list.append("\n".to_string());
         finalize_scroll(app);
-        
+
         app.input_text.clear();
         return;
-
     } else if trimmed_input.starts_with("!") {
         let actual_cmd = &trimmed_input[1..trimmed_input.len()];
         let full_sudo_cmd = format!("sudo {}", actual_cmd);
-        
-        app.history_list.append(format!("[󱐋] Root Exec: {}", actual_cmd));
-        
+
+        app.history_list
+            .append(format!("[󱐋] Root Exec: {}", actual_cmd));
+
         let result = run_os_command(&full_sudo_cmd);
         for line in result.lines() {
             app.history_list.append(format!("  {}", line));
@@ -186,7 +191,6 @@ pub fn execute_command(app: &mut AppState, terminal: &mut Terminal<CrosstermBack
         return;
     }
 
-
     let parts: Vec<&str> = app.input_text.split_whitespace().collect();
 
     let cmd_name = parts[0].to_lowercase();
@@ -195,14 +199,14 @@ pub fn execute_command(app: &mut AppState, terminal: &mut Terminal<CrosstermBack
 
     if cmd_name == "reg" && args.len() >= 2 {
         let name = args[0].to_string();
-        
+
         let (desc, action) = match args.last() {
             Some(&"fg") => {
-                let d = args[1..args.len()-1].join(" ");
+                let d = args[1..args.len() - 1].join(" ");
                 (d, CommandAction::ExecuteInteractive)
             }
             Some(&"bg") => {
-                let d = args[1..args.len()-1].join(" ");
+                let d = args[1..args.len() - 1].join(" ");
                 (d, CommandAction::ExecuteCaptured)
             }
             _ => {
@@ -214,9 +218,14 @@ pub fn execute_command(app: &mut AppState, terminal: &mut Terminal<CrosstermBack
         let new_cmd = Command::new(&name, &desc, action);
 
         app.command_registry.insert(new_cmd);
-        
-        let mode_str = if matches!(action, CommandAction::ExecuteInteractive) { "Interactive" } else { "Captured" };
-        app.history_list.append(format!("[+] Registered: {} [{}]", name, mode_str));
+
+        let mode_str = if matches!(action, CommandAction::ExecuteInteractive) {
+            "Interactive"
+        } else {
+            "Captured"
+        };
+        app.history_list
+            .append(format!("[+] Registered: {} [{}]", name, mode_str));
 
         app.history_list.append("\n".to_string());
         finalize_scroll(app);
@@ -266,7 +275,6 @@ pub fn execute_command(app: &mut AppState, terminal: &mut Terminal<CrosstermBack
         return;
     }
 
-
     if let Some(cmd) = app.command_registry.search(cmd_name.to_string()) {
         match cmd.action {
             CommandAction::SystemCd => {
@@ -283,19 +291,20 @@ pub fn execute_command(app: &mut AppState, terminal: &mut Terminal<CrosstermBack
                     app.message_color = Color::Green;
                     app.history_list.append("\n".to_string());
                 }
-            },
+            }
             CommandAction::ExecuteInteractive => {
                 let full_cmd = format!("{} {}", cmd_name, args.join(" "));
                 let _ = run_interactive_process(terminal, &full_cmd);
-            },
+            }
             CommandAction::ExecuteCaptured => {
                 let result = run_os_command(&full_cmd);
-                app.history_list.append(format!("[󱆃] : '{}'", full_cmd.trim()));
+                app.history_list
+                    .append(format!("[󱆃] : '{}'", full_cmd.trim()));
                 for line in result.lines() {
                     app.history_list.append(format!("  {}", line));
                 }
                 app.history_list.append("\n".to_string());
-            },
+            }
             CommandAction::SystemClear => {
                 app.history_list.purge();
                 app.message_color = Color::Green;
@@ -339,12 +348,14 @@ fn run_os_command(cmd_name: &str) -> String {
         }
         Err(e) => format!("Failed to execute: {}", e),
     }
-
 }
-pub fn run_interactive_process(terminal: &mut Terminal<CrosstermBackend<Stdout>>, cmd_string: &str) -> io::Result<()> {
+pub fn run_interactive_process(
+    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
+    cmd_string: &str,
+) -> io::Result<()> {
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    
+
     let mut child = OsCommand::new("sh")
         .arg("-c")
         .arg(cmd_string)

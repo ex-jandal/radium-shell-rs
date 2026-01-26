@@ -161,7 +161,7 @@ pub fn draw_ui(f: &mut Frame, app_state: &AppState) {
 }
 
 pub fn draw_login(f: &mut Frame, app_state: &AppState) {
-    let area = centered_rect(40, 8, f.area()); 
+    let area = centered_rect(40, 7, f.area()); 
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)

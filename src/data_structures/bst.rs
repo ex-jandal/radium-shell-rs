@@ -1,16 +1,16 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Copy)]
+#[derive(Clone, Serialize, Deserialize, Copy)]
 pub enum CommandAction {
     SystemClear,
     SystemExit,
     DataDisplay,
     SystemCd,
     ExecuteCaptured,
-    ExecuteInteractive
+    ExecuteInteractive,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Command {
     pub name: String,
     pub description: String,
@@ -18,7 +18,7 @@ pub struct Command {
 }
 
 pub fn is_protected(name: &str) -> bool {
-    let protected = ["reg", "del", "clear", "help", "exit"];
+    let protected = ["reg", "del", "clear", "cd", "help", "exit"];
     protected.contains(&name.to_lowercase().as_str())
 }
 
@@ -27,8 +27,8 @@ impl Command {
         let name = name.to_string();
         let description = description.to_string();
 
-        Self { 
-            name, 
+        Self {
+            name,
             description,
             action,
         }
@@ -74,15 +74,15 @@ impl CommandTree {
 
     pub fn get_all_names(&self) -> Vec<String> {
         let mut names = Vec::new();
-        Self::traverse(&self.root, &mut names);
+        Self::names_recursive(&self.root, &mut names);
         names
     }
 
-    fn traverse(node: &Option<Box<TreeNode>>, names: &mut Vec<String>) {
+    fn names_recursive(node: &Option<Box<TreeNode>>, names: &mut Vec<String>) {
         if let Some(n) = node {
-            Self::traverse(&n.left, names);
+            Self::names_recursive(&n.left, names);
             names.push(n.command.name.clone());
-            Self::traverse(&n.right, names);
+            Self::names_recursive(&n.right, names);
         }
     }
 
@@ -105,7 +105,9 @@ impl CommandTree {
     }
 
     pub fn find_prediction(&self, prefix: &str) -> Option<String> {
-        if prefix.is_empty() { return None; }
+        if prefix.is_empty() {
+            return None;
+        }
         self.search_prefix(&self.root, prefix)
     }
 
@@ -137,8 +139,12 @@ impl CommandTree {
             n.right = Self::delete_recursive(n.right.take(), name);
             Some(n)
         } else {
-            if n.left.is_none() { return n.right; }
-            if n.right.is_none() { return n.left; }
+            if n.left.is_none() {
+                return n.right;
+            }
+            if n.right.is_none() {
+                return n.left;
+            }
 
             let successor_command = Self::find_min(&n.right);
             n.command = successor_command.clone();
@@ -157,7 +163,7 @@ impl CommandTree {
     pub fn save_to_file(&self, filename: &str) -> std::io::Result<()> {
         let mut commands = Vec::new();
         self.collect_all(&self.root, &mut commands);
-        
+
         let json = serde_json::to_string_pretty(&commands);
 
         std::fs::write(filename, json.unwrap())?;
@@ -166,13 +172,13 @@ impl CommandTree {
 
     pub fn load_from_file(&mut self, filename: &str) -> std::io::Result<()> {
         let data = std::fs::read_to_string(filename)?;
-        
+
         let commands: Vec<Command> = serde_json::from_str(&data)?;
-        
+
         for cmd in commands {
             self.insert(cmd);
         }
-        
+
         Ok(())
     }
 
