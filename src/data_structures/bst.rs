@@ -15,7 +15,6 @@ pub struct Command {
     pub name: String,
     pub description: String,
     pub action: CommandAction,
-    pub is_interactive: bool,
 }
 
 pub fn is_protected(name: &str) -> bool {
@@ -32,7 +31,6 @@ impl Command {
             name, 
             description,
             action,
-            is_interactive: false
         }
     }
 }
@@ -169,8 +167,7 @@ impl CommandTree {
     pub fn load_from_file(&mut self, filename: &str) -> std::io::Result<()> {
         let data = std::fs::read_to_string(filename)?;
         
-        let commands: Vec<Command> = serde_json::from_str(&data)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let commands: Vec<Command> = serde_json::from_str(&data)?;
         
         for cmd in commands {
             self.insert(cmd);
